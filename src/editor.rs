@@ -3,6 +3,9 @@ mod terminal;
 use std::io::Error;
 use terminal::{Position, Size, Terminal};
 
+const NAME: &str = env!("CARGO_PKG_NAME");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub struct Editor {
     should_quit: bool,
 }
@@ -60,11 +63,33 @@ impl Editor {
         Ok(())
     }
 
+    fn draw_welcome_message() -> Result<(), Error> {
+        let mut welcome_message = format!("{NAME} editor -- version {VERSION}");
+        let width = Terminal::size()?.w as usize;
+        let len = welcome_message.len();
+        let padding = (width - len) / 2;
+        let spaces = " ".repeat(padding - 1);
+        welcome_message = format!("~{spaces}{welcome_message}");
+        welcome_message.truncate(width);
+        Terminal::crossterm_print(welcome_message)?;
+        Ok(())
+    }
+
+    fn draw_empty_row() -> Result<(), Error> {
+        Terminal::crossterm_print("~")?;
+        Ok(())
+    }
+
     fn draw_rows() -> Result<(), Error> {
         let Size { h, .. } = Terminal::size()?;
         for current_row in 0..h {
             Terminal::clear_line()?;
-            Terminal::crossterm_print("~")?;
+            if current_row == h / 3 {
+                Self::draw_welcome_message()?;
+            } else {
+                Self::draw_empty_row()?;
+            }
+
             if current_row + 1 < h {
                 Terminal::crossterm_print("\r\n")?;
             }
