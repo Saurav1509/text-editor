@@ -10,15 +10,22 @@ use std::io::{stdout, Write};
 
 #[derive(Copy, Clone)]
 pub struct Size {
-    pub w: u16,
-    pub h: u16,
+    pub w: usize,
+    pub h: usize,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct Position {
-    pub x: u16,
-    pub y: u16,
+    pub col: usize,
+    pub row: usize,
 }
+
+/// Represents the Terminal.
+/// Edge Case for platforms where `usize` < `u16`:
+/// Regardless of the actual size of the Terminal, this representation
+/// only spans over at most `usize::MAX` or `u16::size` rows/columns, whichever is smaller.
+/// Each size returned truncates to min(`usize::MAX`, `u16::MAX`)
+/// And should you attempt to set the caret out of these bounds, it will also be truncated.
 
 pub struct Terminal;
 
@@ -27,7 +34,6 @@ impl Terminal {
         enable_raw_mode()?; // What '?' does here. It unwraps the Result of enable_raw_mode for us.
                             //If it's an error, it returns the error immediately. If not, it continues.
         Self::clear_screen()?;
-        Self::move_cursor_to(Position { x: 0, y: 0 })?;
         Self::execute()?;
         Ok(())
     }
@@ -45,22 +51,31 @@ impl Terminal {
         Ok(())
     }
 
-    pub fn move_cursor_to(pos: Position) -> Result<(), Error> {
-        Self::queue_command(MoveTo(pos.x, pos.y))?;
+    /// Moves the caret to the given Position.
+    /// # Arguments
+    /// * `Position` - the  `Position`to move the caret to. Will be truncated to `u16::MAX` if bigger.
+    pub fn move_caret_to(pos: Position) -> Result<(), Error> {
+        Self::queue_command(MoveTo(pos.col as u16, pos.row as u16))?;
         Ok(())
     }
 
+    /// Returns the current size of this Terminal.
+    /// Edge Case for systems with `usize` < `u16`:
+    /// * A `Size` representing the terminal size. Any coordinate `z` truncated to `usize` if `usize` < `z` < `u16`
     pub fn size() -> Result<Size, Error> {
-        let (w, h) = size()?;
+        let (w_u16, h_u16) = size()?;
+        #[allow(clippy::as_conversions)]
+        let h = h_u16 as usize;
+        let w = w_u16 as usize;
         Ok(Size { w, h })
     }
 
-    pub fn hide_cursor() -> Result<(), Error> {
+    pub fn hide_caret() -> Result<(), Error> {
         Self::queue_command(Hide)?;
         Ok(())
     }
 
-    pub fn show_cursor() -> Result<(), Error> {
+    pub fn show_caret() -> Result<(), Error> {
         Self::queue_command(Show)?;
         Ok(())
     }
