@@ -1,18 +1,22 @@
 use super::terminal::{Size, Terminal};
+mod buffer;
+use buffer::Buffer;
 use std::io::Error;
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(Default, Clone, Copy)]
-pub struct View {}
+#[derive(Default)]
+pub struct View {
+    buffer: Buffer,
+}
 
 impl View {
-    pub fn render() -> Result<(), Error> {
+    pub fn render_welcome_screen() -> Result<(), Error> {
         let Size { h, .. } = Terminal::size()?;
-        Terminal::clear_line()?;
-        Terminal::crossterm_print("Hello World!")?;
+
         for current_row in 0..h {
+            Terminal::clear_line()?;
             #[allow(clippy::integer_division)]
             if current_row == h / 3 {
                 Self::draw_welcome_message()?;
@@ -27,6 +31,34 @@ impl View {
 
         Ok(())
     }
+
+    pub fn render_buffer(&self) -> Result<(), Error> {
+        let Size { h, .. } = Terminal::size()?;
+
+        for current_row in 0..h {
+            Terminal::clear_line()?;
+
+            if let Some(line) = self.buffer.lines.get(current_row) {
+                Terminal::crossterm_print(line)?;
+                Terminal::crossterm_print("\r\n")?;
+            } else {
+                Self::draw_empty_row()?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn render(&self) -> Result<(), Error> {
+        if self.buffer.is_empty() {
+            Self::render_welcome_screen()?;
+        } else {
+            Self::render_buffer(&self)?;
+        }
+
+        Ok(())
+    }
+
     fn draw_empty_row() -> Result<(), Error> {
         Terminal::crossterm_print("~")?;
         Ok(())
@@ -48,5 +80,11 @@ impl View {
         Terminal::crossterm_print(&welcome_message)?;
 
         Ok(())
+    }
+
+    pub fn load(&mut self, file_name: &str) {
+        if let Ok(buffer) = Buffer::load(file_name) {
+            self.buffer = buffer;
+        }
     }
 }
