@@ -1,7 +1,6 @@
-use super::terminal::{Position, Size, Terminal};
+use super::terminal::{Size, Terminal};
 mod buffer;
 use buffer::Buffer;
-use std::io::Error;
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -18,11 +17,9 @@ impl View {
         self.needs_redraw = true;
     }
 
-    fn render_line(at: usize, line_text: &str) -> Result<(), Error> {
-        Terminal::move_caret_to(Position { row: at, col: 0 })?;
-        Terminal::clear_line()?;
-        Terminal::crossterm_print(line_text)?;
-        Ok(())
+    fn render_line(at: usize, line_text: &str) {
+        let result = Terminal::print_row(at, line_text);
+        debug_assert!(result.is_ok(), "Failed to render line");
     }
 
     fn build_welcome_message(w: usize) -> String {
@@ -44,15 +41,15 @@ impl View {
         full_message
     }
 
-    pub fn render(&mut self) -> Result<(), Error> {
+    pub fn render(&mut self) {
         if !self.needs_redraw {
-            return Ok(());
+            return;
         }
 
         let Size { w, h } = self.size;
 
         if w == 0 || h == 0 {
-            return Ok(());
+            return;
         }
 
         #[allow(clippy::integer_division)]
@@ -61,15 +58,14 @@ impl View {
         for current_row in 0..h {
             if let Some(line) = self.buffer.lines.get(current_row) {
                 let truncated_line = if line.len() >= w { &line[0..w] } else { line };
-                Self::render_line(current_row, truncated_line)?;
+                Self::render_line(current_row, truncated_line);
             } else if current_row == vertical_center && self.buffer.is_empty() {
-                Self::render_line(current_row, &Self::build_welcome_message(w))?;
+                Self::render_line(current_row, &Self::build_welcome_message(w));
             } else {
-                Self::render_line(current_row, "~")?;
+                Self::render_line(current_row, "~");
             }
         }
         self.needs_redraw = false;
-        Ok(())
     }
 
     pub fn load(&mut self, file_name: &str) {

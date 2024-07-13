@@ -2,7 +2,10 @@ use crossterm::cursor::MoveTo;
 use crossterm::cursor::{Hide, Show};
 use crossterm::style::Print;
 // use crossterm::execute;
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, size, Clear, ClearType};
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, size, Clear, ClearType, EnterAlternateScreen,
+    LeaveAlternateScreen,
+};
 use crossterm::{queue, Command};
 use std::io::Error;
 use std::io::{stdout, Write};
@@ -30,13 +33,31 @@ pub struct Terminal;
 
 impl Terminal {
     pub fn initialize() -> Result<(), Error> {
-        enable_raw_mode()?; // What '?' does here. It unwraps the Result of enable_raw_mode for us.
-                            //If it's an error, it returns the error immediately. If not, it continues.
+        enable_raw_mode()?;
+        Self::enter_alternate_screen()?; // What '?' does here. It unwraps the Result of enable_raw_mode for us.
+                                         //If it's an error, it returns the error immediately. If not, it continues.
+                                         // Self::clear_screen()?;
         Self::clear_screen()?;
         Self::execute()?;
+
+        // Self::queue_command(MoveTo(pos.col as u16, pos.row as u16))?;
         Ok(())
     }
+
+    pub fn enter_alternate_screen() -> Result<(), Error> {
+        Self::queue_command(EnterAlternateScreen)?;
+        Ok(())
+    }
+
+    pub fn leave_alternate_screen() -> Result<(), Error> {
+        Self::queue_command(LeaveAlternateScreen)?;
+        Ok(())
+    }
+
     pub fn terminate() -> Result<(), Error> {
+        Self::leave_alternate_screen()?;
+        Self::show_caret()?;
+        Self::execute()?;
         disable_raw_mode()?;
         Ok(())
     }
@@ -55,6 +76,13 @@ impl Terminal {
     /// * `Position` - the  `Position`to move the caret to. Will be truncated to `u16::MAX` if bigger.
     pub fn move_caret_to(pos: Position) -> Result<(), Error> {
         Self::queue_command(MoveTo(pos.col as u16, pos.row as u16))?;
+        Ok(())
+    }
+
+    pub fn print_row(row: usize, line_text: &str) -> Result<(), Error> {
+        Self::move_caret_to(Position { row, col: 0 })?;
+        Self::clear_line()?;
+        Self::crossterm_print(line_text)?;
         Ok(())
     }
 
